@@ -33,14 +33,20 @@ GP2Y1010AU0F --(pulsed IR, analog Vo)--> ESP32-S3 --(Wi-Fi, MQTT)--> ThingsBoard
  GPIO5 ──────── pin3 LED              5V  ────────── pin6 Vcc
 ```
 
-Keep the sensor output on an **ADC1 pin (GPIO1–10)**: ADC2 can't be read while Wi-Fi is on. Pins and resistor values live in [`include/config.h`](include/config.h).
+Keep the sensor output on an **ADC1 pin (GPIO1–10)**: ADC2 can't be read while Wi-Fi is on. Pins and resistor values live in [`AQI_Monitor/config.h`](AQI_Monitor/config.h).
 
 ## Firmware
 
-Built with [PlatformIO](https://platformio.org/) (VS Code extension or `pip install platformio`).
+The sketch is in [`AQI_Monitor/`](AQI_Monitor). First copy `AQI_Monitor/secrets.example.h` to `AQI_Monitor/secrets.h` and fill in your Wi-Fi details and ThingsBoard token.
 
+**Arduino IDE**
+1. Install the ESP32 boards: **Boards Manager** → "esp32 by Espressif Systems".
+2. Install the libraries: **Library Manager** → **PubSubClient** (Nick O'Leary) and **ArduinoJson** (Benoit Blanchon, v7).
+3. Open `AQI_Monitor/AQI_Monitor.ino`, select **ESP32S3 Dev Module** and your port, then click **Upload**.
+4. Open **Serial Monitor** at 115200 baud. If you see no output and are on the native USB port, set **Tools → USB CDC On Boot → Enabled**.
+
+**PlatformIO** (VS Code extension or `pip install platformio`)
 ```sh
-cp include/secrets.example.h include/secrets.h   # then edit Wi-Fi + ThingsBoard token
 pio run -t upload
 pio device monitor
 ```
@@ -86,7 +92,7 @@ The GP2Y10's clean-air voltage (Voc) varies a lot between units (≈0.6–1.5 V)
 
 1. Sign in to your ThingsBoard (e.g. [thingsboard.cloud](https://thingsboard.cloud)).
 2. **Entities → Devices → +** add a device, e.g. `AQI Monitor 1`.
-3. Open it, **Copy access token**, put it in `include/secrets.h` as `TB_ACCESS_TOKEN`.
+3. Open it, **Copy access token**, put it in `AQI_Monitor/secrets.h` as `TB_ACCESS_TOKEN`.
 4. Flash the board, then confirm data under the device's **Latest telemetry** tab.
 5. Build the dashboard. See [docs/dashboard.md](docs/dashboard.md).
 
@@ -101,11 +107,12 @@ Sends realistic fake readings with the same keys, so you can build the dashboard
 ## Project layout
 
 ```
-include/config.h            pins, timing, calibration, intervals
-include/secrets.example.h   template for Wi-Fi + ThingsBoard credentials
-src/main.cpp                Wi-Fi, MQTT, telemetry loop
-src/dust_sensor.*           GP2Y10 pulse sampling and conversion
-src/aqi.*                   PM2.5 → US EPA AQI
-tools/simulate.py           fake-data publisher for dashboard testing
-docs/dashboard.md           ThingsBoard dashboard guide
+AQI_Monitor/AQI_Monitor.ino     main sketch: Wi-Fi, MQTT, telemetry loop
+AQI_Monitor/config.h            pins, timing, calibration, intervals
+AQI_Monitor/secrets.example.h   template for Wi-Fi + ThingsBoard credentials
+AQI_Monitor/dust_sensor.*       GP2Y10 pulse sampling and conversion
+AQI_Monitor/aqi.*               PM2.5 -> US EPA AQI
+platformio.ini                  optional PlatformIO build of the same sketch
+tools/simulate.py               fake-data publisher for dashboard testing
+docs/dashboard.md               ThingsBoard dashboard guide
 ```

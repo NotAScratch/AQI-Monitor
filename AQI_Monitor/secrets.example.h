@@ -1,6 +1,6 @@
 #pragma once
 
-// Copy this file to include/secrets.h and fill in your values.
+// Copy this file to secrets.h (same folder) and fill in your values.
 // secrets.h is git-ignored so your credentials never get pushed.
 
 #define WIFI_SSID      "your-wifi-ssid"

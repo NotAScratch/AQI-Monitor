@@ -71,8 +71,8 @@ Testing/
 .pio/
 .vscode/
 
-# Local credentials (copy include/secrets.example.h -> include/secrets.h)
-include/secrets.h
+# Local credentials (copy AQI_Monitor/secrets.example.h -> AQI_Monitor/secrets.h)
+AQI_Monitor/secrets.h
 
 # Python
 __pycache__/
