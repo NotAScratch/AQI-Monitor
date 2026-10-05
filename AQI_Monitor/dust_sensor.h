@@ -2,12 +2,13 @@
 #include <Arduino.h>
 
 // Sharp GP2Y1010AU0F optical dust sensor.
-// Call poll() as often as possible from loop(); it fires one LED pulse every
+// begin() starts a high-priority task that fires one LED pulse every
 // DUST_PULSE_PERIOD_US and accumulates the readings until takeWindow().
+// Running it as its own task keeps the 0.28 ms sample point exact even while
+// loop() is busy with MQTT or the display.
 class DustSensor {
 public:
   void begin();
-  void poll();
 
   struct Window {
     uint32_t samples;
@@ -21,10 +22,11 @@ public:
   float zeroVoltage() const { return zeroVoltage_; }
 
 private:
+  static void taskEntry(void* self);
   float sampleOnce();
 
   float zeroVoltage_ = 0;
-  uint32_t lastPulseUs_ = 0;
+  portMUX_TYPE mux_ = portMUX_INITIALIZER_UNLOCKED;
   double sumVoltage_ = 0;
   uint32_t count_ = 0;
 };

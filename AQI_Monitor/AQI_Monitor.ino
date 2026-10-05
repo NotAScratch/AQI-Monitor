@@ -1,4 +1,5 @@
-// Live AQI Monitor: ESP32-S3 + Sharp GP2Y1010AU0F, reporting to ThingsBoard over MQTT.
+// Live AQI Monitor: ESP32 + Sharp GP2Y1010AU0F, reporting to ThingsBoard over MQTT
+// and scrolling the AQI on a P10 LED panel.
 
 #include <Arduino.h>
 #include <WiFi.h>
@@ -9,6 +10,7 @@
 #include "secrets.h"
 #include "dust_sensor.h"
 #include "aqi.h"
+#include "display.h"
 
 static const char* kTopicTelemetry  = "v1/devices/me/telemetry";
 static const char* kTopicAttributes = "v1/devices/me/attributes";
@@ -18,6 +20,7 @@ static const char* kTopicAttrResp   = "v1/devices/me/attributes/response/+";
 WiFiClient wifiClient;
 PubSubClient mqtt(wifiClient);
 DustSensor dust;
+Display display;
 
 uint32_t telemetryIntervalMs = TELEMETRY_INTERVAL_S_DEFAULT * 1000UL;
 uint32_t lastTelemetryMs = 0;
@@ -66,21 +69,24 @@ void onMqttMessage(char* topic, byte* payload, unsigned int length) {
   }
 }
 
-void connectWifi() {
+// Non-blocking so the display and sensor run while Wi-Fi comes up;
+// the ESP32 keeps reconnecting in the background.
+void startWifi() {
   WiFi.mode(WIFI_STA);
   WiFi.setAutoReconnect(true);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  Serial.printf("[wifi] connecting to %s", WIFI_SSID);
-  uint32_t start = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - start < 20000) {
-    delay(500);
-    Serial.print('.');
-  }
-  Serial.println();
-  if (WiFi.status() == WL_CONNECTED) {
+  Serial.printf("[wifi] connecting to %s\n", WIFI_SSID);
+}
+
+void logWifiChanges() {
+  static bool wasConnected = false;
+  bool connected = WiFi.status() == WL_CONNECTED;
+  if (connected == wasConnected) return;
+  wasConnected = connected;
+  if (connected) {
     Serial.printf("[wifi] connected, IP %s\n", WiFi.localIP().toString().c_str());
   } else {
-    Serial.println("[wifi] not connected yet, will keep retrying in background");
+    Serial.println("[wifi] disconnected, retrying");
   }
 }
 
@@ -88,7 +94,7 @@ void publishDeviceAttributes() {
   JsonDocument doc;
   doc["firmwareVersion"] = FIRMWARE_VERSION;
   doc["sensor"] = "Sharp GP2Y1010AU0F";
-  doc["board"] = "ESP32-S3";
+  doc["board"] = "ESP32";
   doc["ip"] = WiFi.localIP().toString();
   doc["mac"] = WiFi.macAddress();
   char buf[256];
@@ -139,6 +145,10 @@ void publishTelemetry() {
   size_t n = serializeJson(doc, buf);
   Serial.printf("[data] %s\n", buf);
   if (mqtt.connected()) mqtt.publish(kTopicTelemetry, (const uint8_t*)buf, n, false);
+
+  char msg[64];
+  snprintf(msg, sizeof(msg), "AQI: %d  %s", aqi, aqiCategory(aqi));
+  display.show(msg);
 }
 
 void setup() {
@@ -146,8 +156,10 @@ void setup() {
   delay(500);
   Serial.printf("\nLive AQI Monitor v%s\n", FIRMWARE_VERSION);
 
+  display.begin();
+  display.show("Waiting for sensor...");
   dust.begin();
-  connectWifi();
+  startWifi();
 
   mqtt.setServer(TB_HOST, TB_PORT);
   mqtt.setBufferSize(512);
@@ -157,7 +169,8 @@ void setup() {
 }
 
 void loop() {
-  dust.poll();
+  display.update();
+  logWifiChanges();
   maintainMqtt();
   mqtt.loop();
 
